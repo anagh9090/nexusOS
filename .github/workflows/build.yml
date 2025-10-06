@@ -1,0 +1,30 @@
+name: Build NexusOS ISO
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: sudo apt update && sudo apt install -y live-build
+
+      - name: Build ISO
+        run: |
+          sudo lb clean
+          sudo lb config --distribution buster --debian-installer live
+          sudo cp -r config/* config/includes.chroot/
+          sudo bash build.sh
+          sudo lb build
+
+      - name: Upload ISO
+        uses: actions/upload-artifact@v3
+        with:
+          name: NexusOS
+          path: "*.iso"
