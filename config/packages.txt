@@ -1,0 +1,7 @@
+steam
+lutris
+wine
+gamemode
+preload
+htop
+cpufrequtils
