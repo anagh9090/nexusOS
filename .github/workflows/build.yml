@@ -1,9 +1,9 @@
-name: Build NexusOS ISO (Bullseye)
+name: Build Custom Debian ISO
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -13,34 +13,56 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Set up dependencies
         run: |
           sudo apt update
-          sudo apt install -y live-build debootstrap debian-archive-keyring
+          sudo apt install -y debootstrap live-build cdebootstrap xorriso grub-pc-bin grub-efi-amd64-bin grub-efi-ia32-bin mtools
 
-      - name: Prepare includes directory
-        run: |
-          mkdir -p config/includes.chroot
-          # Copy everything except includes.chroot itself
-          find config -mindepth 1 -maxdepth 1 ! -name includes.chroot -exec cp -r {} config/includes.chroot/ \; || true
-
-      - name: Run build script
-        run: sudo bash build.sh
-
-      - name: Build ISO
+      - name: Configure Live Build (Debian Bullseye)
         run: |
           sudo lb clean
           sudo lb config \
             --distribution bullseye \
+            --architecture amd64 \
             --mirror-bootstrap http://deb.debian.org/debian/ \
             --mirror-chroot http://deb.debian.org/debian/ \
             --mirror-binary http://deb.debian.org/debian/ \
+            --mirror-binary-security http://security.debian.org/debian-security \
             --debian-installer live \
             --apt-secure true
+
+          #  Fix wrong repos (remove Ubuntu and restricted components)
+          sudo sed -i '/ubuntu/d' config/archives/*.list* || true
+          sudo sed -i '/ubuntu/d' config/includes.chroot/etc/apt/sources.list || true
+
+          #  Add correct Debian security repository
+          echo "deb http://security.debian.org/debian-security bullseye-security main contrib non-free" | sudo tee -a config/archives/debian.list.chroot
+
+      - name: Add custom wallpaper setup (optional)
+        run: |
+          mkdir -p config/includes.chroot/etc/skel/Pictures
+          mkdir -p config/includes.chroot/etc/xdg/autostart
+
+          # Copy your wallpaper (replace wallpaper.jpg with your actual image name)
+          if [ -f "wallpaper.jpg" ]; then
+            sudo cp wallpaper.jpg config/includes.chroot/etc/skel/Pictures/wallpaper.jpg
+          fi
+
+          #  Add autostart script to set wallpaper for all new users
+          cat << 'EOF' | sudo tee config/includes.chroot/etc/xdg/autostart/set-wallpaper.desktop
+          [Desktop Entry]
+          Type=Application
+          Name=Set Default Wallpaper
+          Exec=sh -c 'pcmanfm --set-wallpaper ~/Pictures/wallpaper.jpg --wallpaper-mode=fill || true'
+          X-GNOME-Autostart-enabled=true
+          EOF
+
+      - name: Build ISO
+        run: |
           sudo lb build
 
       - name: Upload ISO artifact
         uses: actions/upload-artifact@v4
         with:
           name: NexusOS-ISO
-          path: "*.iso"
+          path: live-image-amd64.hybrid.iso
