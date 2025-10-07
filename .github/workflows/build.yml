@@ -19,7 +19,7 @@ jobs:
           sudo apt install -y \
             debootstrap live-build cdebootstrap \
             xorriso grub-pc-bin grub-efi-amd64-bin grub-efi-ia32-bin mtools \
-            syslinux isolinux graphicsmagick feh
+            syslinux isolinux graphicsmagick imagemagick feh
 
       - name: Configure live-build (Debian Bullseye)
         run: |
@@ -36,7 +36,7 @@ jobs:
             --bootappend-live "boot=live components quiet splash" \
             --linux-packages "linux-image linux-headers"
 
-          # Fix any wrong repos
+          # Fix wrong repos
           sudo sed -i '/ubuntu/d' config/archives/*.list* || true
           sudo sed -i '/restricted/d' config/archives/*.list* || true
 
@@ -48,7 +48,7 @@ jobs:
           sudo mkdir -p config/includes.chroot/etc/skel/Pictures
           sudo mkdir -p config/includes.chroot/etc/xdg/autostart
 
-          # 🖼️ Add wallpaper
+          # Add wallpaper
           if [ -f "wallpaper.jpg" ]; then
             sudo cp wallpaper.jpg config/includes.chroot/etc/skel/Pictures/wallpaper.jpg
           else
@@ -57,7 +57,7 @@ jobs:
             sudo cp wallpaper.jpg config/includes.chroot/etc/skel/Pictures/wallpaper.jpg
           fi
 
-          # 🧠 Add autostart script for setting wallpaper
+          # Add autostart script
           echo '[Desktop Entry]
           Type=Application
           Name=Set Default Wallpaper
@@ -69,7 +69,7 @@ jobs:
           sudo mkdir -p config/bootloaders/isolinux
           sudo mkdir -p config/bootloaders/grub
 
-          # Create custom boot splash images
+          # Boot splash images
           sudo convert -size 640x480 xc:black -fill "#00ffcc" -gravity center \
             -pointsize 32 -annotate 0 "Welcome to NexusOS Gaming Edition" config/bootloaders/isolinux/splash.png
 
