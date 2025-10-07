@@ -8,23 +8,33 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Install dependencies
-        run: sudo apt update && sudo apt install -y live-build
+        run: |
+          sudo apt update
+          sudo apt install -y live-build
+
+      - name: Prepare includes directory
+        run: |
+          mkdir -p config/includes.chroot
+          # Copy all files except includes.chroot itself
+          find config -mindepth 1 -maxdepth 1 ! -name includes.chroot -exec cp -r {} config/includes.chroot/ \; || true
+
+      - name: Run build script
+        run: sudo bash build.sh
 
       - name: Build ISO
         run: |
           sudo lb clean
           sudo lb config --distribution buster --debian-installer live
-          sudo cp -r config/* config/includes.chroot/
-          sudo bash build.sh
           sudo lb build
 
-      - name: Upload ISO
+      - name: Upload ISO artifact
         uses: actions/upload-artifact@v4
         with:
-          name: NexusOS
+          name: NexusOS-ISO
           path: "*.iso"
