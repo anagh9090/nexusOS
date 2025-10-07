@@ -19,7 +19,7 @@ jobs:
           sudo apt install -y \
             debootstrap live-build cdebootstrap \
             xorriso grub-pc-bin grub-efi-amd64-bin grub-efi-ia32-bin mtools \
-            syslinux isolinux graphicsmagick
+            syslinux isolinux graphicsmagick feh
 
       - name: Configure live-build (Debian Bullseye)
         run: |
@@ -45,38 +45,39 @@ jobs:
 
       - name: Add custom wallpaper and autostart
         run: |
-          mkdir -p config/includes.chroot/etc/skel/Pictures
-          mkdir -p config/includes.chroot/etc/xdg/autostart
+          sudo mkdir -p config/includes.chroot/etc/skel/Pictures
+          sudo mkdir -p config/includes.chroot/etc/xdg/autostart
 
+          # 🖼️ Add wallpaper
           if [ -f "wallpaper.jpg" ]; then
             sudo cp wallpaper.jpg config/includes.chroot/etc/skel/Pictures/wallpaper.jpg
           else
-            convert -size 1920x1080 xc:black -fill "#00ffcc" -gravity center \
+            sudo convert -size 1920x1080 xc:black -fill "#00ffcc" -gravity center \
               -pointsize 120 -annotate 0 "NEXUS OS" wallpaper.jpg
             sudo cp wallpaper.jpg config/includes.chroot/etc/skel/Pictures/wallpaper.jpg
           fi
 
-          cat << 'EOF' | sudo tee config/includes.chroot/etc/xdg/autostart/set-wallpaper.desktop
-          [Desktop Entry]
+          # 🧠 Add autostart script for setting wallpaper
+          echo '[Desktop Entry]
           Type=Application
           Name=Set Default Wallpaper
-          Exec=sh -c 'feh --bg-fill ~/Pictures/wallpaper.jpg || pcmanfm --set-wallpaper ~/Pictures/wallpaper.jpg --wallpaper-mode=fill || true'
-          X-GNOME-Autostart-enabled=true
-          EOF
+          Exec=sh -c "feh --bg-fill ~/Pictures/wallpaper.jpg || pcmanfm --set-wallpaper ~/Pictures/wallpaper.jpg --wallpaper-mode=fill || true"
+          X-GNOME-Autostart-enabled=true' | sudo tee config/includes.chroot/etc/xdg/autostart/set-wallpaper.desktop
 
       - name: Add NexusOS boot branding
         run: |
-          mkdir -p config/bootloaders/isolinux
-          mkdir -p config/bootloaders/grub
+          sudo mkdir -p config/bootloaders/isolinux
+          sudo mkdir -p config/bootloaders/grub
 
-          convert -size 640x480 xc:black -fill "#00ffcc" -gravity center \
+          # Create custom boot splash images
+          sudo convert -size 640x480 xc:black -fill "#00ffcc" -gravity center \
             -pointsize 32 -annotate 0 "Welcome to NexusOS Gaming Edition" config/bootloaders/isolinux/splash.png
 
-          convert -size 800x600 xc:black -fill "#00ffcc" -gravity center \
+          sudo convert -size 800x600 xc:black -fill "#00ffcc" -gravity center \
             -pointsize 42 -annotate 0 "NexusOS Boot Menu" config/bootloaders/grub/splash.png
 
-          cat << 'EOF' | sudo tee config/bootloaders/isolinux/isolinux.cfg
-          UI vesamenu.c32
+          # isolinux boot menu
+          echo 'UI vesamenu.c32
           PROMPT 0
           TIMEOUT 50
           MENU TITLE NexusOS Boot Menu
@@ -89,11 +90,10 @@ jobs:
           LABEL install
             MENU LABEL ^Install NexusOS
             KERNEL /install/vmlinuz
-            APPEND initrd=/install/initrd.gz quiet
-          EOF
+            APPEND initrd=/install/initrd.gz quiet' | sudo tee config/bootloaders/isolinux/isolinux.cfg
 
-          cat << 'EOF' | sudo tee config/bootloaders/grub/grub.cfg
-          set default=0
+          # GRUB boot menu
+          echo 'set default=0
           set timeout=5
           set gfxmode=auto
           insmod gfxterm
@@ -106,14 +106,12 @@ jobs:
           menuentry "Install NexusOS" {
               linux /install/vmlinuz quiet
               initrd /install/initrd.gz
-          }
-          EOF
+          }' | sudo tee config/bootloaders/grub/grub.cfg
 
       - name: Add Gaming Packages (Steam, Lutris, Wine, Drivers)
         run: |
-          mkdir -p config/package-lists
-          cat << 'EOF' | sudo tee config/package-lists/gaming.list.chroot
-          # Core gaming components
+          sudo mkdir -p config/package-lists
+          echo '# Core gaming components
           steam
           lutris
           wine
@@ -149,15 +147,17 @@ jobs:
           git
           htop
           neofetch
-          gnome-terminal
-          EOF
+          gnome-terminal' | sudo tee config/package-lists/gaming.list.chroot
 
       - name: Build NexusOS ISO
         run: |
           sudo lb build
 
       - name: Rename and upload ISO
+        run: sudo mv live-image-amd64.hybrid.iso NexusOS-Gaming.iso
+
+      - name: Upload ISO as artifact
         uses: actions/upload-artifact@v4
         with:
           name: NexusOS-Gaming-Edition
-          path: live-image-amd64.hybrid.iso
+          path: NexusOS-Gaming.iso
